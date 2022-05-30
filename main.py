@@ -31,7 +31,7 @@ async def startup_event():
 
 
 @app.get("/")
-def hello():
+def main():
     return "Thomas is ready!"
 
 
