@@ -50,11 +50,11 @@ async def vote(request: Request = Depends(verify_dbl_auth)):
     if user is None:
         raise HTTPException(400)
 
-    streak = user["streak"] + 1
+    votes = user["votes"] + 1
     now = datetime.utcnow()
 
     await db.users.update_one(
-        {"_id": user_id}, {"$set": {"vote_streak": streak, "last_voted": now}}
+        {"_id": user_id}, {"$set": {"votes": votes, "last_voted": now}}
     )
     await redis.hdel("users", user_id)
 
