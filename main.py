@@ -42,7 +42,7 @@ async def vote(request: Request = Depends(verify_dbl_auth)):
     user_id = int(data["user"])
 
     # Trying to get the user from the cache
-    user = await redis.hget("users", user_id)
+    user = await redis.hget("user", user_id)
 
     if user is None:
         user = await db.users.find_one({"_id": user_id})
@@ -54,9 +54,9 @@ async def vote(request: Request = Depends(verify_dbl_auth)):
     now = datetime.utcnow()
 
     await db.users.update_one(
-        {"_id": user_id}, {"$set": {"votes": votes, "last_voted": now}}
+        {"_id": user["_id"]}, {"$set": {"votes": votes, "last_voted": now}}
     )
-    await redis.hdel("users", user_id)
+    await redis.hdel("user", user["_id"])
 
     return "Thomas is happy!"
 
