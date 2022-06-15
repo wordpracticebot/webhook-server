@@ -39,7 +39,15 @@ def main():
 async def vote(request: Request = Depends(verify_dbl_auth)):
     data = await request.json()
 
-    user_id = int(data["user"])
+    # Getting the user id from the request
+    if "id" in data:
+        user_id = data["id"]
+    elif "user" in data:
+        user_id = data["user"]
+    else:
+        raise HTTPException(400)
+
+    user_id = int(user_id)
 
     user = await db.users.find_one({"_id": user_id})
 
