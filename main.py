@@ -50,7 +50,8 @@ async def vote(request: Request = Depends(verify_dbl_auth)):
     now = datetime.utcnow()
 
     await db.users.update_one(
-        {"_id": user["_id"]}, {"$set": {"votes": votes, "last_voted.topgg": now}}
+        {"_id": user["_id"]},
+        {"$set": {"votes": votes, "last_voted.topgg": now}, "$inc": {"xp": 1000}},
     )
     await redis.hdel("user", user["_id"])
 
