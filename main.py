@@ -27,7 +27,12 @@ def verify_dbl_auth(req: Request):
 @app.on_event("startup")
 async def startup_event():
     global redis
-    redis = await aioredis.from_url(REDIS_URL)
+    redis = await aioredis.from_url(REDIS_URL, socket_timeout=10, max_connections=2)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await redis.close()
 
 
 @app.get("/")
@@ -42,8 +47,10 @@ async def vote(request: Request = Depends(verify_dbl_auth)):
     # Getting the user id from the request
     if "id" in data:
         user_id = data["id"]
+        site = "dbls"
     elif "user" in data:
         user_id = data["user"]
+        site = "topgg"
     else:
         raise HTTPException(400)
 
@@ -59,7 +66,7 @@ async def vote(request: Request = Depends(verify_dbl_auth)):
 
     await db.users.update_one(
         {"_id": user["_id"]},
-        {"$set": {"votes": votes, "last_voted.topgg": now}, "$inc": {"xp": 1000}},
+        {"$set": {"votes": votes, f"last_voted.{site}": now}, "$inc": {"xp": 1000}},
     )
     await redis.hdel("user", user["_id"])
 
