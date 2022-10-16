@@ -50,7 +50,10 @@ async def vote(request: Request = Depends(verify_dbl_auth)):
         site = "dbls"
     elif "user" in data:
         user_id = data["user"]
-        site = "topgg"
+        if "guild" in data:
+            site = "topgg-server"
+        else:
+            site = "topgg"
     else:
         raise HTTPException(400)
 
@@ -66,7 +69,7 @@ async def vote(request: Request = Depends(verify_dbl_auth)):
 
     await db.users.update_one(
         {"_id": user["_id"]},
-        {"$set": {"votes": votes, f"last_voted.{site}": now}, "$inc": {"xp": 1000}},
+        {"$set": {"votes": votes, f"last_voted.{site}": now}, "$inc": {"xp": 750}},
     )
     await redis.hdel("user", user["_id"])
 
