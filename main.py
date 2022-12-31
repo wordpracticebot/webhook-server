@@ -1,11 +1,12 @@
+import json
 from datetime import datetime
 
-import aioredis
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
 from motor.motor_asyncio import AsyncIOMotorClient
+from redis import asyncio as aioredis
 
-from config import DATABASE_NAME, DATABASE_URI, DBL_TOKEN, REDIS_URL
+from config import DATABASE_NAME, DATABASE_URI, DBL_TOKEN, KOFI_TOKEN, REDIS_URL
 
 app = FastAPI()
 
@@ -19,6 +20,26 @@ def verify_dbl_auth(req: Request):
     token = req.headers["Authorization"]
 
     if token != DBL_TOKEN:
+        raise HTTPException(401)
+
+    return req
+
+
+def get_data_from_form(form_data):
+    data = str(form_data.get("data", None))
+
+    return json.loads(data)
+
+
+async def verify_kofi_auth(req: Request):
+    form_data = await req.form()
+
+    data = get_data_from_form(form_data)
+
+    if data is None:
+        raise HTTPException(401)
+
+    if data.get("verification_token", None) != KOFI_TOKEN:
         raise HTTPException(401)
 
     return req
@@ -38,6 +59,26 @@ async def shutdown_event():
 @app.get("/")
 def main():
     return "Thomas is ready!"
+
+
+@app.post("/premium")
+async def premium(request: Request = Depends(verify_kofi_auth)):
+    data = get_data_from_form(await request.form())
+
+    if data["type"] != "Subscription":
+        raise HTTPException(401)
+
+    await db.premium.insert_one(
+        {
+            "_id": "c1b6754f-b43d-454b-97b2-423876716273",
+            "email": data["email"],
+            "name": data["from_name"],
+            "tier": data["tier_name"],
+            "first_time": data["is_first_subscription_payment"],
+        }
+    )
+
+    return "Thomas is very happy!"
 
 
 @app.post("/vote")

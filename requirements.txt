@@ -1,6 +1,6 @@
 fastapi
 uvicorn
 python-decouple
-aioredis
+redis
 motor
 dnspython
