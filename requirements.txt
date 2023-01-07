@@ -5,3 +5,4 @@ redis
 motor
 dnspython
 starlette-discord
+pyjwt
