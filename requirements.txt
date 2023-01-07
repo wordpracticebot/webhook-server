@@ -4,3 +4,4 @@ python-decouple
 redis
 motor
 dnspython
+starlette-discord
