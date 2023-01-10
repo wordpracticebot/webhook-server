@@ -74,6 +74,15 @@ def get_data_from_form(form_data):
     return json.loads(data)
 
 
+def decode_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM])
+    except jwt.InvalidTokenError:
+        raise HTTPException(401)
+
+    return payload
+
+
 @app.on_event("startup")
 async def startup_event():
     global redis  # thomas doesn't like globals :(
@@ -105,6 +114,7 @@ async def premium(request: Request = Depends(verify_kofi_auth)):
             "email": data["email"],
             "name": data["from_name"],
             "tier": data["tier_name"],
+            "amount": float(data["amount"]),
             "first_time": data["is_first_subscription_payment"],
             "activated_by": None,
             "expired": False,
@@ -160,9 +170,7 @@ async def start_login():
 async def callback(code: str):
     user = await discord.login(code)
 
-    payload = {
-        "id": user.id,
-    }
+    payload = {"id": user.id, "email": user.email}
 
     jwt_token = jwt.encode(payload, SECRET, algorithm=ALGORITHM)
 
@@ -171,10 +179,7 @@ async def callback(code: str):
 
 @app.get("/user")
 async def get_user(token: str):
-    try:
-        payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM])
-    except jwt.InvalidTokenError:
-        raise HTTPException(401)
+    payload = decode_token(token)
 
     user = await db.users.find_one({"_id": payload["id"]})
 
@@ -189,6 +194,35 @@ async def get_user(token: str):
     }
 
     return JSONResponse(user_data)
+
+
+@app.get("/subs")
+async def get_subs(token: str):
+    payload = decode_token(token)
+
+    subs = db.subscriptions.find({"email": payload["email"]})
+
+    unordered_subs = [sub async for sub in subs]
+
+    # Ordering subscriptions by expiry date and whether or not they are claimed
+
+    unclaimed_subs = []
+    active_subs = []
+
+    # Diving the subscriptions into active and unclaimed
+    for sub in unordered_subs:
+        if sub["activated_by"] is None:
+            unclaimed_subs.append(sub)
+        else:
+            active_subs.append(sub)
+
+    # Sorting the subscriptions by expiry date
+    active_subs.sort(key=lambda sub: sub["expire_time"])
+    unclaimed_subs.sort(key=lambda sub: sub["expire_time"])
+
+    ordered_subs = unclaimed_subs + active_subs
+
+    return JSONResponse(ordered_subs)
 
 
 if __name__ == "__main__":
