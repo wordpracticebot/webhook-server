@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime
 
 import jwt
@@ -96,13 +97,18 @@ async def premium(request: Request = Depends(verify_kofi_auth)):
     if data["type"] != "Subscription":
         raise HTTPException(401)
 
-    await db.premium.insert_one(
+    expire_time = int(time.time() + 60 * 60 * 24 * 32)  # giving an extra day
+
+    await db.subscriptions.insert_one(
         {
             "_id": data["message_id"],
             "email": data["email"],
             "name": data["from_name"],
             "tier": data["tier_name"],
             "first_time": data["is_first_subscription_payment"],
+            "activated_by": None,
+            "expired": False,
+            "expire_time": expire_time,
         }
     )
 
