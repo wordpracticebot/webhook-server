@@ -248,7 +248,7 @@ async def activate_sub(sub_id: str, token: str):
         {
             "$set": {
                 "premium": {
-                    "expire_data": datetime.utcfromtimestamp(sub["expire_time"]),
+                    "expire_date": datetime.utcfromtimestamp(sub["expire_time"]),
                     "name": sub["tier"],
                 }
             }
