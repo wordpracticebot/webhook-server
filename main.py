@@ -206,23 +206,64 @@ async def get_subs(token: str):
 
     # Ordering subscriptions by expiry date and whether or not they are claimed
 
-    unclaimed_subs = []
     active_subs = []
+    inactive_subs = []
 
     # Diving the subscriptions into active and unclaimed
     for sub in unordered_subs:
-        if sub["activated_by"] is None:
-            unclaimed_subs.append(sub)
-        else:
+        sub["expired"] = sub["expired"] or sub["expire_time"] <= time.time()
+
+        if sub["activated_by"] is None and not sub["expired"]:
             active_subs.append(sub)
+        else:
+            inactive_subs.append(sub)
 
     # Sorting the subscriptions by expiry date
-    active_subs.sort(key=lambda sub: sub["expire_time"])
-    unclaimed_subs.sort(key=lambda sub: sub["expire_time"])
+    active_subs.sort(key=lambda sub: sub["expire_time"], reverse=True)
+    inactive_subs.sort(key=lambda sub: sub["expire_time"], reverse=True)
 
-    ordered_subs = unclaimed_subs + active_subs
+    ordered_subs = active_subs + inactive_subs
 
     return JSONResponse(ordered_subs)
+
+
+@app.post("/activate/{sub_id}")
+async def activate_sub(sub_id: str, token: str):
+    payload = decode_token(token)
+
+    sub = await db.subscriptions.find_one({"_id": sub_id, "email": payload["email"]})
+
+    if sub is None:
+        raise HTTPException(404)
+
+    if sub["activated_by"] is not None:
+        raise HTTPException(400)
+
+    if sub["expire_time"] < time.time():
+        raise HTTPException(400)
+
+    # Updating the user's subscription
+    await db.users.update_one(
+        {"_id": payload["id"]},
+        {
+            "$set": {
+                "premium": {
+                    "expire_data": datetime.utcfromtimestamp(sub["expire_time"]),
+                    "name": sub["tier"],
+                }
+            }
+        },
+    )
+
+    # Removing the user from the cache
+    await redis.hdel("user", payload["id"])
+
+    # Updating the subscription
+    await db.subscriptions.update_one(
+        {"_id": sub["_id"]}, {"$set": {"activated_by": payload["id"]}}
+    )
+
+    return "Thomas is very happy!"
 
 
 if __name__ == "__main__":
