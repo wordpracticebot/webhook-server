@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
+from oauthlib.oauth2.rfc6749.errors import MissingTokenError
 from redis import asyncio as aioredis
 from starlette_discord import DiscordOAuthClient
 
@@ -168,7 +169,10 @@ async def start_login():
 
 @app.get("/token")
 async def callback(code: str):
-    user = await discord.login(code)
+    try:
+        user = await discord.login(code)
+    except MissingTokenError:
+        raise HTTPException(500)
 
     payload = {"id": user.id, "email": user.email}
 
